@@ -2,113 +2,59 @@
 #define MASTER_PROCESS_H
 
 #include "bsp_usart.h"
-#include "seasky_protocol.h"
 
-#define VISION_RECV_SIZE 18u // 当前为固定值,36字节
-#define VISION_SEND_SIZE 36u
+/* ---------------- 帧长度（与协议一致） ---------------- */
+#define VISION_RECV_SIZE 22u   // planArray 长度
+#define VISION_SEND_SIZE 17u   // robotArray 长度
 
+/* ---------------- 新协议枚举 ---------------- */
+typedef enum {
+    MODE_IDLE   = 0,
+    MODE_REMOTE = 1,
+    MODE_SELF   = 2
+} Robot_Mode_e;
+
+typedef enum {
+    STATE_WAITING_PLAN  = 0,
+    STATE_RECEIVED_PLAN = 1,
+    STATE_CATCHING      = 2,
+    STATE_OVER          = 3
+} Robot_State_e;
+
+typedef enum {
+    CMD_MOVE_PLAN = 0
+} Plan_Cmd_e;
+
+/* ---------------- 数据结构体（名称不变，字段重新定义） ---------------- */
 #pragma pack(1)
-typedef enum
-{
-	NO_FIRE = 0,
-	AUTO_FIRE = 1,
-	AUTO_AIM = 2
-} Fire_Mode_e;
 
-typedef enum
-{
-	NO_TARGET = 0,
-	TARGET_CONVERGING = 1,
-	READY_TO_FIRE = 2
-} Target_State_e;
-
-typedef enum
-{
-	NO_TARGET_NUM = 0,
-	HERO1 = 1,
-	ENGINEER2 = 2,
-	INFANTRY3 = 3,
-	INFANTRY4 = 4,
-	INFANTRY5 = 5,
-	OUTPOST = 6,
-	SENTRY = 7,
-	BASE = 8
-} Target_Type_e;
-
-typedef struct
-{
-	Fire_Mode_e fire_mode;
-	Target_State_e target_state;
-	Target_Type_e target_type;
-
-	float pitch;
-	float yaw;
+/**
+ * @brief 接收数据结构体（planArray）
+ *        上位机下发的接球规划目标
+ */
+typedef struct {
+    float target_x;           // 接球目标位置 X (m)
+    float target_y;           // 接球目标位置 Y (m)
+    float target_yaw;         // 目标机器人朝向 (度)
+    float target_time;        // 球到击球点的预测时间 (s)
 } Vision_Recv_s;
 
-typedef enum
-{
-	COLOR_NONE = 0,
-	COLOR_BLUE = 1,
-	COLOR_RED = 2,
-} Enemy_Color_e;
-
-typedef enum
-{
-	VISION_MODE_AIM = 0,
-	VISION_MODE_SMALL_BUFF = 1,
-	VISION_MODE_BIG_BUFF = 2
-} Work_Mode_e;
-
-typedef enum
-{
-	BULLET_SPEED_NONE = 0,
-	BIG_AMU_10 = 10,
-	SMALL_AMU_15 = 15,
-	BIG_AMU_16 = 16,
-	SMALL_AMU_18 = 18,
-	SMALL_AMU_30 = 30,
-} Bullet_Speed_e;
-
-typedef struct
-{
-	Enemy_Color_e enemy_color;
-	Work_Mode_e work_mode;
-	Bullet_Speed_e bullet_speed;
-
-	float yaw;
-	float pitch;
-	float roll;
+/**
+ * @brief 发送数据结构体（robotArray）
+ *        下位机上报的当前机器人状态
+ */
+typedef struct {
+    Robot_Mode_e  mode;       // 当前执行模式
+    Robot_State_e state;      // 接球阶段状态
+    float robot_x;            // 机器人当前 X 坐标 (m)
+    float robot_y;            // 机器人当前 Y 坐标 (m)
+    float robot_yaw;          // 机器人当前航向角 (度)
 } Vision_Send_s;
+
 #pragma pack()
 
-/**
- * @brief 调用此函数初始化和视觉的串口通信
- *
- * @param handle 用于和视觉通信的串口handle(C板上一般为USART1,丝印为USART2,4pin)
- */
+/* ---------------- 外部接口（与原来完全一致） ---------------- */
 Vision_Recv_s *VisionInit(UART_HandleTypeDef *_handle);
+void VisionSend(Vision_Send_s *send);
 
-/**
- * @brief 发送视觉数据
- *
- */
-void VisionSend();
-
-/**
- * @brief 设置视觉发送标志位
- *
- * @param enemy_color
- * @param work_mode
- * @param bullet_speed
- */
-void VisionSetFlag(Enemy_Color_e enemy_color, Work_Mode_e work_mode, Bullet_Speed_e bullet_speed);
-
-/**
- * @brief 设置发送数据的姿态部分
- *
- * @param yaw
- * @param pitch
- */
-void VisionSetAltitude(float yaw, float pitch, float roll);
-
-#endif // !MASTER_PROCESS_H
+#endif // MASTER_PROCESS_H

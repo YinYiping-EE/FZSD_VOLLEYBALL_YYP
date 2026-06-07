@@ -35,9 +35,9 @@ void StartUITASK(void const *argument);
  */
 void OSTaskInit()
 {
-    osThreadDef(instask, StartINSTASK, osPriorityAboveNormal, 0, 1024);
-    insTaskHandle = osThreadCreate(osThread(instask), NULL); // 由于是阻塞读取传感器,为姿态解算设置较高优先级,确保以1khz的频率执行
-    // // 后续修改为读取传感器数据准备好的中断处理,
+    // osThreadDef(instask, StartINSTASK, osPriorityAboveNormal, 0, 1024);
+    // insTaskHandle = osThreadCreate(osThread(instask), NULL); // 由于是阻塞读取传感器,为姿态解算设置较高优先级,确保以1khz的频率执行
+    // // // 后续修改为读取传感器数据准备好的中断处理,
 
     osThreadDef(motortask, StartMOTORTASK, osPriorityNormal, 0, 256);
     motorTaskHandle = osThreadCreate(osThread(motortask), NULL);
@@ -48,8 +48,8 @@ void OSTaskInit()
     osThreadDef(robottask, StartROBOTTASK, osPriorityNormal, 0, 1024);
     robotTaskHandle = osThreadCreate(osThread(robottask), NULL);
 
-    osThreadDef(uitask, StartUITASK, osPriorityNormal, 0, 512);
-    uiTaskHandle = osThreadCreate(osThread(uitask), NULL);
+    // osThreadDef(uitask, StartUITASK, osPriorityNormal, 0, 512);
+    // uiTaskHandle = osThreadCreate(osThread(uitask), NULL);
 
     HTMotorControlInit(); // 没有注册HT电机则不会执行
 }
@@ -68,7 +68,7 @@ __attribute__((noreturn)) void StartINSTASK(void const *argument)
         ins_dt = DWT_GetTimeline_ms() - ins_start;
         if (ins_dt > 1)
             LOGERROR("[freeRTOS] INS Task is being DELAY! dt = [%f]", &ins_dt);
-        VisionSend(); // 解算完成后发送视觉数据,但是当前的实现不太优雅,后续若添加硬件触发需要重新考虑结构的组织
+        //VisionSend(); // 解算完成后发送视觉数据,但是当前的实现不太优雅,后续若添加硬件触发需要重新考虑结构的组织
         osDelay(1);
     }
 }
@@ -125,15 +125,15 @@ __attribute__((noreturn)) void StartROBOTTASK(void const *argument)
     }
 }
 
-__attribute__((noreturn)) void StartUITASK(void const *argument)
-{
-    LOGINFO("[freeRTOS] UI Task Start");
-    MyUIInit();
-    LOGINFO("[freeRTOS] UI Init Done, communication with ref has established");
-    for (;;)
-    {
-        // 每给裁判系统发送一包数据会挂起一次,详见UITask函数的refereeSend()
-        UITask();
-        osDelay(1); // 即使没有任何UI需要刷新,也挂起一次,防止卡在UITask中无法切换
-    }
-}
+// __attribute__((noreturn)) void StartUITASK(void const *argument)
+// {
+//     LOGINFO("[freeRTOS] UI Task Start");
+//     MyUIInit();
+//     LOGINFO("[freeRTOS] UI Init Done, communication with ref has established");
+//     for (;;)
+//     {
+//         // 每给裁判系统发送一包数据会挂起一次,详见UITask函数的refereeSend()
+//         UITask();
+//         osDelay(1); // 即使没有任何UI需要刷新,也挂起一次,防止卡在UITask中无法切换
+//     }
+// }

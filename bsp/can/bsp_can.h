@@ -16,6 +16,8 @@
 #include <stdint.h>
 #ifdef FDCAN
 #include "fdcan.h"
+// Ensure HAL FDCAN defines (like FDCAN_STANDARD_ID, FDCAN_DLC_BYTES_*) are available
+#include "stm32h7xx_hal_fdcan.h"
 #define hcan1  hfdcan1
 #define hcan2  hfdcan2
 #define hcan3  hfdcan3

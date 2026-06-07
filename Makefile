@@ -109,6 +109,7 @@ bsp/iic/bsp_iic.c \
 bsp/can/bsp_can.c \
 bsp/usart/bsp_usart.c \
 bsp/log/bsp_log.c \
+bsp/usb/bsp_usb.c \
 bsp/bsp_tools.c \
 modules/algorithm/controller.c \
 modules/algorithm/kalman_filter.c \
@@ -131,10 +132,6 @@ modules/motor/step_motor/step_motor.c \
 modules/motor/servo_motor/servo_motor.c \
 modules/motor/motor_task.c \
 modules/oled/oled.c \
-modules/referee/crc_ref.c \
-modules/referee/rm_referee.c \
-modules/referee/referee_UI.c \
-modules/referee/referee_task.c \
 modules/remote/remote_control.c \
 modules/super_cap/super_cap.c \
 modules/can_comm/can_comm.c \
@@ -235,6 +232,7 @@ C_INCLUDES =  \
 -Ibsp/iic \
 -Ibsp/log \
 -Ibsp/pwm \
+-Ibsp/usb \
 -Ibsp \
 -Imodules/algorithm \
 -Imodules/bluetooth \

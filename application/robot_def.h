@@ -21,8 +21,8 @@
 // #define CHASSIS_BOARD //底盘板
 // #define GIMBAL_BOARD  //云台板
 
-//#define VISION_USE_VCP  // 使用虚拟串口发送视觉数据
-#define VISION_USE_UART // 使用串口发送视觉数据
+#define VISION_USE_VCP  // 使用虚拟串口发送视觉数据
+//#define VISION_USE_UART // 使用串口发送视觉数据
 
 /* 机器人重要参数定义,注意根据不同机器人进行修改,浮点数需要以.0或f结尾,无符号以u结尾 */
 // 云台参数
@@ -162,27 +162,7 @@ typedef struct
 
 } Chassis_Ctrl_Cmd_s;
 
-// cmd发布的云台控制数据,由gimbal订阅
-typedef struct
-{ // 云台角度控制
-    float yaw;
-    float pitch;
-    float chassis_rotate_wz;
 
-    gimbal_mode_e gimbal_mode;
-} Gimbal_Ctrl_Cmd_s;
-
-// cmd发布的发射控制数据,由shoot订阅
-typedef struct
-{
-    shoot_mode_e shoot_mode;
-    loader_mode_e load_mode;
-    lid_mode_e lid_mode;
-    friction_mode_e friction_mode;
-    Bullet_Speed_e bullet_speed; // 弹速枚举
-    uint8_t rest_heat;
-    float shoot_rate; // 连续发射的射频,unit per s,发/秒
-} Shoot_Ctrl_Cmd_s;
 
 /* ----------------gimbal/shoot/chassis发布的反馈数据----------------*/
 /**
@@ -201,8 +181,7 @@ typedef struct
     // float real_wz;
 
     uint8_t rest_heat;           // 剩余枪口热量
-    Bullet_Speed_e bullet_speed; // 弹速限制
-    Enemy_Color_e enemy_color;   // 0 for blue, 1 for red
+
 
 } Chassis_Upload_Data_s;
 

@@ -16,6 +16,8 @@
 #include "usbd_desc.h"
 #include "usbd_cdc_if.h"
 
+typedef void (*USBCallback)(uint16_t);
+
 typedef struct
 {
     USBCallback tx_cbk;
