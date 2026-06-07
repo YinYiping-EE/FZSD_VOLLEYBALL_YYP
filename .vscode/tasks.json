@@ -3,10 +3,16 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "build task",         // 任务标签
-            "type": "shell",               // 任务类型,因为要调用mingw32-make,是在终端(CMD)里运行的,所以是shell任务
-            "command": "mingw32-make -j24",// 要执行的任务命令
-            "problemMatcher": [],          
+            "label": "build task",
+            "type": "shell",
+            "command": "F:\\msys\\mingw64\\bin\\mingw32-make",
+            "args": ["-j4"],
+            "options": {
+                "env": {
+                    "PATH": "F:\\msys\\mingw64\\bin;${env:PATH}"
+                }
+            },
+            "problemMatcher": [],
             "group": {
                 "kind": "build",
                 "isDefault": true

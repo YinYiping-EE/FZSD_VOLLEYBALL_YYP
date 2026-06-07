@@ -150,6 +150,9 @@ static void sbus_to_rc(const uint8_t *sbus_buf)
         // if (tmp < -RC_STICK_RANGE) tmp = -RC_STICK_RANGE;
 
         ch[i] = (int16_t)tmp;
+
+        // 4) 死区: 限幅后绝对值小于10则置零,消除摇杆中位抖动
+        if (ch[i] < 10 && ch[i] > -10) ch[i] = 0;
     }
     // 赋值到rc_ctrl
     rc_ctrl[TEMP].rc.rocker_r_ = ch[0];    // 右水平

@@ -121,48 +121,39 @@ static void CalcOffsetAngle()
  */
 static void RemoteControlSet()
 {
+    if (switch_is_up(rc_data[TEMP].rc.switch_left)) {// 左侧开关状态为[上],手动模式
+        if (switch_is_down(rc_data[TEMP].rc.switch_right)) // 右侧开关状态[下],底盘保持前向
+        {
+            chassis_cmd_send.chassis_mode = CHASSIS_KEEP_FRONT;
+        }
+        else if (switch_is_up(rc_data[TEMP].rc.switch_right)) // 右侧开关状态[上],底盘自由旋转移动
+        {
+            chassis_cmd_send.chassis_mode = CHASSIS_NO_FOLLOW;
+            chassis_cmd_send.wz = (float)rc_data[TEMP].rc.rocker_l_*3; // 设置底盘旋转速度,增益系数需要调整
+        }
+        //YYP0417修改：根据遥控器右侧开关的状态切换发球杆状态,右侧开关[上]为零位,右侧开关[下]为打出
+        if (switch_is_up(rc_data[TEMP].rc.switch_right)&&g_launcher_status!=LAUNCHER_STOP) // 右侧开关状态[上],发球杆在初始位
+            g_launcher_status=LAUNCHER_ORIGIN;                                            
+        else if(g_launcher_status!=LAUNCHER_STOP)
+            g_launcher_status=LAUNCHER_HIT; /// 右侧开关状态[下],发球杆打出
+                // 底盘参数,目前没有加入小陀螺(调试似乎暂时没有必要),系数需要调整
+        if(abs(rc_data[TEMP].rc.rocker_r_)>50)
+            chassis_cmd_send.vx = 15.0f * (float)rc_data[TEMP].rc.rocker_r_; // 水平方向
+        else
+            chassis_cmd_send.vx = 0;
+        if(abs(rc_data[TEMP].rc.rocker_r1)>50)
+            chassis_cmd_send.vy = 15.0f * (float)rc_data[TEMP].rc.rocker_r1; // 竖直方向
+        else
+            chassis_cmd_send.vy = 0;
+    }
     
-    if (switch_is_down(rc_data[TEMP].rc.switch_right)) // 左侧开关状态[下],底盘保持前向
-    {
-        chassis_cmd_send.chassis_mode = CHASSIS_KEEP_FRONT;
-        // gimbal_cmd_send.gimbal_mode = GIMBAL_GYRO_MODE;
-    }
-    else if (switch_is_up(rc_data[TEMP].rc.switch_right)) // 左侧开关状态[上],底盘自由旋转移动
-    {
-        chassis_cmd_send.chassis_mode = CHASSIS_NO_FOLLOW;
-        chassis_cmd_send.wz = (float)rc_data[TEMP].rc.rocker_l_*3; // 设置底盘旋转速度,增益系数需要调整
-        // gimbal_cmd_send.gimbal_mode = GIMBAL_FREE_MODE;
-    }
-
-    // 自动接球模式
-    if (switch_is_down(rc_data[TEMP].rc.switch_left)) // 左侧开关状态为[下],视觉模式
+    else if (switch_is_down(rc_data[TEMP].rc.switch_left)) // 左侧开关状态为[下],视觉模式
     {
         // 待添加,视觉会发来和目标的误差,同样将其转化为total angle的增量进行控制
         // ...
     }
-    // 左侧开关状态为[下],或视觉未识别到目标,纯遥控器拨杆控制
-    // if (switch_is_down(rc_data[TEMP].rc.switch_left) || vision_recv_data->target_state == NO_TARGET)
-    // { // 按照摇杆的输出大小进行角度增量,增益系数需调整
-    //     gimbal_cmd_send.yaw += 0.005f * (float)rc_data[TEMP].rc.rocker_l_;
-    //     gimbal_cmd_send.pitch += 0.001f * (float)rc_data[TEMP].rc.rocker_l1;
-    // }
 
 
-    // 底盘参数,目前没有加入小陀螺(调试似乎暂时没有必要),系数需要调整
-    if(abs(rc_data[TEMP].rc.rocker_r_)>50)
-        chassis_cmd_send.vx = 15.0f * (float)rc_data[TEMP].rc.rocker_r_; // _水平方向
-    else
-        chassis_cmd_send.vx = 0;
-    if(abs(rc_data[TEMP].rc.rocker_r1)>50)
-        chassis_cmd_send.vy = 15.0f * (float)rc_data[TEMP].rc.rocker_r1; // 1数值方向
-    else
-        chassis_cmd_send.vy = 0;
-
-    //YYP0417修改：根据遥控器右侧开关的状态切换发球杆状态,右侧开关[上]为零位,右侧开关[下]为打出
-    if (switch_is_up(rc_data[TEMP].rc.switch_right)&&g_launcher_status!=LAUNCHER_STOP) // 右侧开关状态[上],发球杆在初始位
-        g_launcher_status=LAUNCHER_ORIGIN;                                            
-    else if(g_launcher_status!=LAUNCHER_STOP)
-        g_launcher_status=LAUNCHER_HIT; /// 右侧开关状态[下],发球杆打出
 
 
 }
