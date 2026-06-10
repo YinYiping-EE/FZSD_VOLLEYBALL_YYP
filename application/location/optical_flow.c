@@ -213,9 +213,7 @@ static void OpticalFlowRxCallback()
         if (instance == NULL || instance->usart_instance == NULL)
             continue;
 
-        recv_len = instance->usart_instance->recv_len;
-        if (recv_len > instance->usart_instance->recv_buff_size)
-            recv_len = instance->usart_instance->recv_buff_size;
+        recv_len = instance->usart_instance->recv_buff_size;
 
         for (uint16_t j = 0; j < recv_len; j++)
             OpticalFlowParseByte(instance, instance->usart_instance->recv_buff[j]);

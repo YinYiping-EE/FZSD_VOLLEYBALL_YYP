@@ -8,11 +8,13 @@
 #include "message_center.h"
 #include "general_def.h"
 #include "dji_motor.h"
-#include "bmi088.h"
+#include "dm_imu.h"
+#include "optical_flow.h"
 // bsp
 #include "bsp_dwt.h"
 #include "bsp_log.h"
-
+float temp_float=0;
+float temp_float1=0;
 //YYP0417添加：发球杆状态全局变量定义,初始状态设为零位,根据遥控器右侧开关的状态进行切换
 LauncherStatus_TypeDef g_launcher_status = LAUNCHER_ORIGIN;
 
@@ -33,6 +35,7 @@ static Subscriber_t *chassis_feed_sub; // 底盘反馈信息订阅者
 static Chassis_Ctrl_Cmd_s chassis_cmd_send;      // 发送给底盘应用的信息,包括控制信息和UI绘制相关
 static Chassis_Upload_Data_s chassis_fetch_data; // 从底盘应用接收的反馈信息信息,底盘功率枪口热量与底盘运动状态等
 
+static OpticalFlowInstance *optical_flow;  // 光流模块实例
 static RC_ctrl_t *rc_data;              // 遥控器数据,初始化时返回
 static Vision_Recv_s *vision_recv_data; // 视觉接收数据指针,初始化时返回
 static Vision_Send_s vision_send_data;  // 视觉发送数据
@@ -48,9 +51,6 @@ static Vision_Send_s vision_send_data;  // 视觉发送数据
 // static Shoot_Upload_Data_s shoot_fetch_data; // 从发射获取的反馈信息
 
 static Robot_Status_e robot_state; // 机器人整体工作状态
-
-BMI088Instance *bmi088_test; // 云台IMU
-BMI088_Data_t bmi088_data;
 void RobotCMDInit()
 {
     rc_data = RemoteControlInit(&huart5);   // 修改为对应串口,注意如果是自研板dbus协议串口需选用添加了反相器的那个
@@ -80,38 +80,47 @@ void RobotCMDInit()
     // gimbal_cmd_send.pitch = 0;
 
     robot_state = ROBOT_READY; // 启动时机器人进入工作模式,后续加入所有应用初始化完成之后再进入
+
+    DM_IMU_Init_Config_s imu_conf = {
+        .tx_id = 0x11,        // MCU → IMU 指令
+        .rx_id = 0x01,        // IMU → MCU 欧拉角
+        .can_handle = &hfdcan3,
+    };
+    DM_IMU_Init(&imu_conf);
+
+    OpticalFlow_Init_Config_s flow_conf = {
+        .usart_handle = &huart7,
+        .protocol = OPTICAL_FLOW_UPIXELS,
+        .flow_scale = OPTICAL_FLOW_DEFAULT_SCALE,
+    };
+    optical_flow = OpticalFlowInit(&flow_conf);
 }
 
 /**
  * YYP0418修改
- * @brief 改为根据底盘IMU获取的当前底盘角度计算和目标保持角度的误差,底盘保持角度由遥控器右侧开关控制
- * @brief (旧)根据gimbal app传回的当前电机角度计算和零位的误差
- *        单圈绝对角度的范围是0~360,说明文档中有图示
- * @todo 将占位的angle修改为底盘IMU获取的当前底盘角度减去应保持的角度,并调整计算方式以适应新的输入值
+ * @brief 根据DM-IMU获取的当前底盘yaw角计算和目标保持角度的误差
+ *        进入CHASSIS_KEEP_FRONT模式时捕获当前yaw作为目标角度,
+ *        之后每周期计算 yaw - keep_angle 并归一化到[-180, 180]
  */
 static void CalcOffsetAngle()
 {
-    
-    // 别名angle提高可读性,不然太长了不好看,虽然基本不会动这个函数
-    static float angle;
-    // angle = gimbal_fetch_data.yaw_motor_single_round_angle; // 从云台获取的当前yaw电机单圈角度
-    angle = 0; // 占位，之后修改为底盘IMU获取的当前底盘角度减去应保持的角度
-    chassis_cmd_send.offset_angle = angle;
-// #if YAW_ECD_GREATER_THAN_4096                               // 如果大于180度
-//     if (angle > YAW_ALIGN_ANGLE && angle <= 180.0f + YAW_ALIGN_ANGLE)
-//         chassis_cmd_send.offset_angle = angle - YAW_ALIGN_ANGLE;
-//     else if (angle > 180.0f + YAW_ALIGN_ANGLE)
-//         chassis_cmd_send.offset_angle = angle - YAW_ALIGN_ANGLE - 360.0f;
-//     else
-//         chassis_cmd_send.offset_angle = angle - YAW_ALIGN_ANGLE;
-// #else // 小于180度
-//     if (angle > YAW_ALIGN_ANGLE)
-//         chassis_cmd_send.offset_angle = angle - YAW_ALIGN_ANGLE;
-//     else if (angle <= YAW_ALIGN_ANGLE && angle >= YAW_ALIGN_ANGLE - 180.0f)
-//         chassis_cmd_send.offset_angle = angle - YAW_ALIGN_ANGLE;
-//     else
-//         chassis_cmd_send.offset_angle = angle - YAW_ALIGN_ANGLE + 360.0f;
-// #endif
+    const DM_IMU_Data_s *imu = DM_IMU_GetData();
+    static float keep_angle = 0;
+    static chassis_mode_e last_mode = CHASSIS_ZERO_FORCE;
+
+    // 进入KEEP_FRONT模式时锁定当前yaw为目标角度
+    if (chassis_cmd_send.chassis_mode == CHASSIS_KEEP_FRONT
+        && last_mode != CHASSIS_KEEP_FRONT)
+    {
+        keep_angle = imu->yaw;
+    }
+    last_mode = chassis_cmd_send.chassis_mode;
+
+    // 计算偏移并归一化到[-180, 180]
+    float offset = imu->yaw - keep_angle;
+    if (offset > 180.0f)  offset -= 360.0f;
+    if (offset < -180.0f) offset += 360.0f;
+    chassis_cmd_send.offset_angle = offset;
 }
 
 /**
@@ -201,7 +210,6 @@ static void EmergencyHandler()
  * YYP0418修改*/
 void RobotCMDTask()
 {
-   // BMI088Acquire(bmi088_test,&bmi088_data) ;
     // 从其他应用获取回传数据
 #ifdef ONE_BOARD
     SubGetMessage(chassis_feed_sub, (void *)&chassis_fetch_data);
@@ -214,6 +222,15 @@ void RobotCMDTask()
 
     // 计算偏移角度,仅在右侧开关状态为[下]需要保持前向时使用
     CalcOffsetAngle();
+
+    // 读取光流模块累计位移数据
+    const OpticalFlow_Data_s *flow_data = OpticalFlowGetData(optical_flow);
+    if (flow_data->updated) {
+        OpticalFlowClearUpdated(optical_flow);
+        temp_float = flow_data->position_x;
+        temp_float1=flow_data->position_y;
+    }
+
     // 纯遥控器
     RemoteControlSet();
 
@@ -233,5 +250,8 @@ void RobotCMDTask()
 #endif // GIMBAL_BOARD
     // PubPushMessage(shoot_cmd_pub, (void *)&shoot_cmd_send);
     // PubPushMessage(gimbal_cmd_pub, (void *)&gimbal_cmd_send);
+    // vision_send_data.robot_x=1145.14;
+    // vision_send_data.robot_yaw=114.514;
+    // vision_send_data.state=1;
     VisionSend(&vision_send_data);//发送
 }

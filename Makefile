@@ -143,6 +143,7 @@ application/chassis/chassis.c \
 application/shoot/shoot.c \
 application/cmd/robot_cmd.c \
 application/location/dm_imu.c \
+application/location/optical_flow.c \
 application/robot.c \
 Core/Src/i2c.c
 

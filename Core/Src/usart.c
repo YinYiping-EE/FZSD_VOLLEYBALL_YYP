@@ -101,7 +101,7 @@ void MX_UART7_Init(void)
 
   /* USER CODE END UART7_Init 1 */
   huart7.Instance = UART7;
-  huart7.Init.BaudRate = 921600;
+  huart7.Init.BaudRate = 115200;
   huart7.Init.WordLength = UART_WORDLENGTH_8B;
   huart7.Init.StopBits = UART_STOPBITS_1;
   huart7.Init.Parity = UART_PARITY_NONE;
@@ -1153,7 +1153,7 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* uartHandle)
 /* USER CODE BEGIN 1 */
 int fputc(int ch, FILE *f)
 {
-	HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, 100);	// ·¢ËÍµ¥×Ö½ÚÊý¾Ý
+	HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, 100);	// ï¿½ï¿½ï¿½Íµï¿½ï¿½Ö½ï¿½ï¿½ï¿½ï¿½ï¿½
 	return (ch);
 }
 /* USER CODE END 1 */
