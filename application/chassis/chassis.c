@@ -246,8 +246,10 @@ void ChassisTask()
         // chassis_cmd_recv.wz = 0;
         
         break;
-    case CHASSIS_KEEP_FRONT: // 保持前向,不单独设置pid,以误差角度平方为速度输出
+    case CHASSIS_KEEP_FRONT: // 保持前向,不单独设置pid,以误差角度平方为速度输出,限幅±150%摇杆最大
         chassis_cmd_recv.wz = -1.5f * chassis_cmd_recv.offset_angle * abs(chassis_cmd_recv.offset_angle);
+        if (chassis_cmd_recv.wz > 2970)  chassis_cmd_recv.wz = 2970;
+        if (chassis_cmd_recv.wz < -2970) chassis_cmd_recv.wz = -2970;
         break;
     case CHASSIS_ROTATE: // 自旋,同时保持全向机动;当前wz维持定值,后续增加不规则的变速策略
         chassis_cmd_recv.wz = 4000;
@@ -256,13 +258,9 @@ void ChassisTask()
         break;
     }
 
-    // 根据云台和底盘的角度offset将控制量映射到底盘坐标系上
-    // 底盘逆时针旋转为角度正方向;云台命令的方向以云台指向的方向为x,采用右手系(x指向正北时y在正东)
-    static float sin_theta, cos_theta;
-    cos_theta = arm_cos_f32(chassis_cmd_recv.offset_angle * DEGREE_2_RAD);
-    sin_theta = arm_sin_f32(chassis_cmd_recv.offset_angle * DEGREE_2_RAD);
-    chassis_vx = chassis_cmd_recv.vx * cos_theta - chassis_cmd_recv.vy * sin_theta;
-    chassis_vy = chassis_cmd_recv.vx * sin_theta + chassis_cmd_recv.vy * cos_theta;
+    // 没有云台，底盘前方就是正方向，遥控器输入直接映射
+    chassis_vx = chassis_cmd_recv.vx;
+    chassis_vy = chassis_cmd_recv.vy;
 
     // 根据控制模式进行正运动学解算,计算底盘输出
     MecanumCalculate();

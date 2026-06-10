@@ -125,6 +125,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
             }
             else
             {
+                __HAL_UART_CLEAR_IDLEFLAG(usart_instance[i]->usart_handle);
                 HAL_UARTEx_ReceiveToIdle_IT(usart_instance[i]->usart_handle, usart_instance[i]->recv_buff, usart_instance[i]->recv_buff_size);
             }
             return; // break the loop
@@ -152,6 +153,7 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
             }
             else
             {
+                __HAL_UART_CLEAR_IDLEFLAG(usart_instance[i]->usart_handle);
                 HAL_UARTEx_ReceiveToIdle_IT(usart_instance[i]->usart_handle, usart_instance[i]->recv_buff, usart_instance[i]->recv_buff_size);
             }
             LOGWARNING("[bsp_usart] USART error callback triggered, instance idx [%d]", i);
