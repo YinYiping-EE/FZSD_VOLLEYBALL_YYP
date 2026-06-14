@@ -21,6 +21,7 @@
 #include "general_def.h"
 #include "bsp_dwt.h"
 // #include "referee_UI.h"
+#include "controller.h"
 #include "arm_math.h"
 
 /* 根据robot_def.h中的macro自动计算的参数 */
@@ -54,6 +55,10 @@ static DJIMotorInstance *motor_lf, *motor_rf, *motor_lb, *motor_rb; // left righ
 /* 私有函数计算的中介变量,设为静态避免参数传递的开销 */
 static float chassis_vx, chassis_vy;     // 将云台系的速度投影到底盘
 static float vt_lf, vt_rf, vt_lb, vt_rb; // 底盘速度解算后的临时输出,待进行限幅
+
+static PIDInstance heading_pid;                  // 前向保持PID实例
+static PID_Init_Config_s heading_pid_config;     // PID配置(文件级存储,供模式切入时重新初始化)
+static chassis_mode_e last_chassis_mode = CHASSIS_ZERO_FORCE;  // 检测模式切换,用于PID复位
 
 void ChassisInit()
 {
@@ -133,6 +138,18 @@ void ChassisInit()
     chassis_sub = SubRegister("chassis_cmd", sizeof(Chassis_Ctrl_Cmd_s));
     chassis_pub = PubRegister("chassis_feed", sizeof(Chassis_Upload_Data_s));
 #endif // ONE_BOARD
+
+    // 前向保持PID初始化
+    heading_pid_config = (PID_Init_Config_s){
+        .Kp = 70.0f,
+        .Ki = 1.5f,
+        .Kd = 120.0f,
+        .MaxOut = 2500.0f,
+        .DeadBand = 0.3f,
+        .IntegralLimit = 400.0f,
+        .Improve = PID_Integral_Limit | PID_Derivative_On_Measurement | PID_Trapezoid_Intergral,
+    };
+    PIDInit(&heading_pid, &heading_pid_config);
 }
 
 // #define LF_CENTER ((HALF_TRACK_WIDTH + CENTER_GIMBAL_OFFSET_X + HALF_WHEEL_BASE - CENTER_GIMBAL_OFFSET_Y) * DEGREE_2_RAD)
@@ -246,17 +263,24 @@ void ChassisTask()
         // chassis_cmd_recv.wz = 0;
         
         break;
-    case CHASSIS_KEEP_FRONT: // 保持前向,不单独设置pid,以误差角度平方为速度输出,限幅±150%摇杆最大
-        chassis_cmd_recv.wz = 1.5f * chassis_cmd_recv.offset_angle * abs(chassis_cmd_recv.offset_angle);
-        if (chassis_cmd_recv.wz > 2000)  chassis_cmd_recv.wz = 2000;
-        if (chassis_cmd_recv.wz < -2000) chassis_cmd_recv.wz = -2000;
+    case CHASSIS_KEEP_FRONT: // 保持前向,PID控制wz,限幅±2000(100%摇杆最大)
+    {
+        if (last_chassis_mode != CHASSIS_KEEP_FRONT)
+        {
+            PIDInit(&heading_pid, &heading_pid_config);  // 重新切入时复位积分和历史误差
+        }
+        chassis_cmd_recv.wz = PIDCalculate(&heading_pid, 0.0f, chassis_cmd_recv.offset_angle);
         break;
+    }
     case CHASSIS_ROTATE: // 自旋,同时保持全向机动;当前wz维持定值,后续增加不规则的变速策略
-        chassis_cmd_recv.wz = 4000;
+        chassis_cmd_recv.wz = 2000;
         break;
     default:
         break;
     }
+
+    // 记录本周期模式,供下周期检测模式切换(PID复位等)
+    last_chassis_mode = chassis_cmd_recv.chassis_mode;
 
     // 没有云台，底盘前方就是正方向，遥控器输入直接映射
     chassis_vx = chassis_cmd_recv.vx;

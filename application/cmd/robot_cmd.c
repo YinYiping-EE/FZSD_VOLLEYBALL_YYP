@@ -160,7 +160,7 @@ static void RemoteControlSet()
         else if (switch_is_up(rc_data[TEMP].rc.switch_right)) // 右侧开关状态[上],底盘自由旋转移动
         {
             chassis_cmd_send.chassis_mode = CHASSIS_NO_FOLLOW;
-            chassis_cmd_send.wz = (float)rc_data[TEMP].rc.rocker_l_*3; // 设置底盘旋转速度,增益系数需要调整
+            chassis_cmd_send.wz = (float)rc_data[TEMP].rc.rocker_l_*4; // 设置底盘旋转速度,增益系数需要调整
         }
         //YYP0417修改：根据遥控器右侧开关的状态切换发球杆状态,右侧开关[上]为零位,右侧开关[下]为打出
         if (switch_is_up(rc_data[TEMP].rc.switch_right)&&g_launcher_status!=LAUNCHER_STOP) // 右侧开关状态[上],发球杆在初始位
@@ -169,11 +169,11 @@ static void RemoteControlSet()
             g_launcher_status=LAUNCHER_HIT; /// 右侧开关状态[下],发球杆打出
                 // 底盘参数,目前没有加入小陀螺(调试似乎暂时没有必要),系数需要调整
         if(abs(rc_data[TEMP].rc.rocker_r_)>50)
-            chassis_cmd_send.vx = 15.0f * (float)rc_data[TEMP].rc.rocker_r_; // 水平方向
+            chassis_cmd_send.vx = 30.0f * (float)rc_data[TEMP].rc.rocker_r_; // 水平方向
         else
             chassis_cmd_send.vx = 0;
         if(abs(rc_data[TEMP].rc.rocker_r1)>50)
-            chassis_cmd_send.vy = 15.0f * (float)rc_data[TEMP].rc.rocker_r1; // 竖直方向
+            chassis_cmd_send.vy = 30.0f * (float)rc_data[TEMP].rc.rocker_r1; // 竖直方向
         else
             chassis_cmd_send.vy = 0;
     }
