@@ -43,6 +43,11 @@
 #define RADIUS_WHEEL 60             // 轮子半径
 #define REDUCTION_RATIO_WHEEL 19.0f // 电机减速比,因为编码器量测的是转子的速度而不是输出轴的速度故需进行转换
 
+/* 视觉导航巡点参数 (电机参考速度单位,量纲同手动模式 vx/vy) */
+#define NAV_MAX_SPEED       10000.0f /**< 0.5 * 手动最大速度 (30*660≈19800) */
+#define NAV_SPEED_GAIN      6000.0f  /**< 速度增益, speed = min(max, dist * gain) */
+#define NAV_ARRIVAL_DIST    0.15f    /**< 到达判定距离阈值, m */
+
 #define GYRO2GIMBAL_DIR_YAW 1   // 陀螺仪数据相较于云台的yaw的方向,1为相同,-1为相反
 #define GYRO2GIMBAL_DIR_PITCH 1 // 陀螺仪数据相较于云台的pitch的方向,1为相同,-1为相反
 #define GYRO2GIMBAL_DIR_ROLL 1  // 陀螺仪数据相较于云台的roll的方向,1为相同,-1为相反

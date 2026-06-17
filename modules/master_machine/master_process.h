@@ -56,5 +56,6 @@ typedef struct {
 /* ---------------- 外部接口（与原来完全一致） ---------------- */
 Vision_Recv_s *VisionInit(UART_HandleTypeDef *_handle);
 void VisionSend(Vision_Send_s *send);
+uint8_t VisionIsOnline(void);
 
 #endif // MASTER_PROCESS_H

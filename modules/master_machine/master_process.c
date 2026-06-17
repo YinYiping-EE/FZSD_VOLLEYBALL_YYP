@@ -158,3 +158,8 @@ void VisionSend(Vision_Send_s *send)
     USBTransmit(send_buff, tx_len);
 }
 #endif // VISION_USE_VCP
+
+uint8_t VisionIsOnline(void)
+{
+    return vision_daemon_instance ? DaemonIsOnline(vision_daemon_instance) : 0;
+}

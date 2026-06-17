@@ -10,6 +10,7 @@
 #include "dji_motor.h"
 #include "dm_imu.h"
 #include "optical_flow.h"
+#include "user_lib.h"
 // bsp
 #include "bsp_dwt.h"
 #include "bsp_log.h"
@@ -147,47 +148,83 @@ static void CalcOffsetAngle()
 }
 
 /**
+ * @brief 视觉导航: 替换摇杆 vx/vy 为导航计算值.
+ *
+ * 不动条件: 视觉离线 | 光流离线 | target=(0,0) | 已到达目标.\n
+ * 右开关及朝向控制逻辑与手动模式一致, 本函数不干预.
+ */
+static void AutoNavigation(void)
+{
+    if (!VisionIsOnline() || !OpticalFlowIsOnline(optical_flow)
+        || (vision_recv_data->target_x == 0.0f && vision_recv_data->target_y == 0.0f))
+    {
+        chassis_cmd_send.vx = 0.0f;
+        chassis_cmd_send.vy = 0.0f;
+        return;
+    }
+
+    const OpticalFlow_Data_s *flow_data = OpticalFlowGetData(optical_flow);
+    float err_x = vision_recv_data->target_x - flow_data->position_x_global;
+    float err_y = vision_recv_data->target_y - flow_data->position_y_global;
+    float dist = Sqrt(err_x * err_x + err_y * err_y);
+
+    if (dist < NAV_ARRIVAL_DIST)
+    {
+        chassis_cmd_send.vx = 0.0f;
+        chassis_cmd_send.vy = 0.0f;
+    }
+    else
+    {
+        float speed = dist * NAV_SPEED_GAIN;
+        speed = float_constrain(speed, 0.0f, NAV_MAX_SPEED);
+        chassis_cmd_send.vx = (err_x / dist) * speed;
+        chassis_cmd_send.vy = (err_y / dist) * speed;
+    }
+}
+
+/**
  * YYP0418修改
  * @brief 控制输入为遥控器(调试时)的模式和控制量设置
  *
  */
 static void RemoteControlSet()
 {
-    if (switch_is_up(rc_data[TEMP].rc.switch_left)) {// 左侧开关状态为[上],手动模式
-        if (switch_is_down(rc_data[TEMP].rc.switch_right)) // 右侧开关状态[下],底盘保持前向
-        {
-            chassis_cmd_send.chassis_mode = CHASSIS_KEEP_FRONT;
-        }
-        else if (switch_is_up(rc_data[TEMP].rc.switch_right)) // 右侧开关状态[上],底盘自由旋转移动
-        {
-            chassis_cmd_send.chassis_mode = CHASSIS_NO_FOLLOW;
-            chassis_cmd_send.wz = (float)rc_data[TEMP].rc.rocker_l_*4; // 设置底盘旋转速度,增益系数需要调整
-        }
-        //YYP0417修改：根据遥控器右侧开关的状态切换发球杆状态,右侧开关[上]为零位,右侧开关[下]为打出
-        if (switch_is_up(rc_data[TEMP].rc.switch_right)&&g_launcher_status!=LAUNCHER_STOP) // 右侧开关状态[上],发球杆在初始位
-            g_launcher_status=LAUNCHER_ORIGIN;                                            
-        else if(g_launcher_status!=LAUNCHER_STOP)
-            g_launcher_status=LAUNCHER_HIT; /// 右侧开关状态[下],发球杆打出
-                // 底盘参数,目前没有加入小陀螺(调试似乎暂时没有必要),系数需要调整
-        if(abs(rc_data[TEMP].rc.rocker_r_)>50)
-            chassis_cmd_send.vx = 30.0f * (float)rc_data[TEMP].rc.rocker_r_; // 水平方向
+    /* ===== 左开关: vx/vy 来源 ===== */
+    if (switch_is_up(rc_data[TEMP].rc.switch_left))
+    {
+        /* 手动模式: vx/vy 来自摇杆 */
+        if (abs(rc_data[TEMP].rc.rocker_r_) > 50)
+            chassis_cmd_send.vx = 30.0f * (float)rc_data[TEMP].rc.rocker_r_;
         else
             chassis_cmd_send.vx = 0;
-        if(abs(rc_data[TEMP].rc.rocker_r1)>50)
-            chassis_cmd_send.vy = 30.0f * (float)rc_data[TEMP].rc.rocker_r1; // 竖直方向
+        if (abs(rc_data[TEMP].rc.rocker_r1) > 50)
+            chassis_cmd_send.vy = 30.0f * (float)rc_data[TEMP].rc.rocker_r1;
         else
             chassis_cmd_send.vy = 0;
     }
-    
-    else if (switch_is_down(rc_data[TEMP].rc.switch_left)) // 左侧开关状态为[下],视觉模式
+    else if (switch_is_down(rc_data[TEMP].rc.switch_left]))
     {
-        // 待添加,视觉会发来和目标的误差,同样将其转化为total angle的增量进行控制
-        // ...
+        /* 自动模式: vx/vy 来自视觉导航 */
+        AutoNavigation();
     }
 
+    /* ===== 右开关: 朝向模式, 手动/自动共用 ===== */
+    if (switch_is_down(rc_data[TEMP].rc.switch_right]))
+    {
+        chassis_cmd_send.chassis_mode = CHASSIS_KEEP_FRONT;
+    }
+    else if (switch_is_up(rc_data[TEMP].rc.switch_right]))
+    {
+        chassis_cmd_send.chassis_mode = CHASSIS_NO_FOLLOW;
+        chassis_cmd_send.wz = (float)rc_data[TEMP].rc.rocker_l_ * 4;
+    }
 
-
-
+    /* ===== 发球杆控制 ===== */
+    //YYP0417修改：根据遥控器右侧开关的状态切换发球杆状态,右侧开关[上]为零位,右侧开关[下]为打出
+    if (switch_is_up(rc_data[TEMP].rc.switch_right) && g_launcher_status != LAUNCHER_STOP)
+        g_launcher_status = LAUNCHER_ORIGIN;
+    else if (g_launcher_status != LAUNCHER_STOP)
+        g_launcher_status = LAUNCHER_HIT;
 }
 
 /**
