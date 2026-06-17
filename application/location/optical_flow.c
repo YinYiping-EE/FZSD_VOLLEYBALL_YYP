@@ -109,13 +109,13 @@ static void OpticalFlowApplyPayload(OpticalFlowInstance *instance)
     if (instance->daemon)
         DaemonReload(instance->daemon);
 
-    /* 低质量光流或 TOF 超量程时,保留上一帧有效定位结果. */
-    if (raw->valid < instance->config.min_valid_threshold || raw->ground_distance == 0xFFFF)
+    /* 低质量光流时丢弃本帧,保留上一帧有效定位结果. */
+    if (raw->valid < instance->config.min_valid_threshold)
         return;
 
-    /* 角位移(rad) * 高度(mm) / 1000 = 实际平移(m). */
-    dx = angle_x * (float)raw->ground_distance * 0.001f;
-    dy = angle_y * (float)raw->ground_distance * 0.001f;
+    /* 角位移(rad) × 固定高度 50mm = 实际平移(m). */
+    dx = angle_x * 0.05f;
+    dy = angle_y * 0.05f;
 
     /* 根据车底实际安装方向修正光流坐标系到车体坐标系. */
     if (instance->config.swap_xy)
