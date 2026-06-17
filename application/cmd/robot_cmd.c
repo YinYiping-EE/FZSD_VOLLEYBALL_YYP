@@ -101,6 +101,7 @@ void RobotCMDInit()
         .protocol = OPTICAL_FLOW_UPIXELS,
         .flow_scale = OPTICAL_FLOW_DEFAULT_SCALE,
         .enable_global_frame = 1,  /* 使能偏航角世界坐标系映射 */
+        .y_direction = -1,         /* Y 轴反向 */
     };
     optical_flow = OpticalFlowInit(&flow_conf);
 
@@ -294,8 +295,8 @@ void RobotCMDTask()
     const OpticalFlow_Data_s *flow_data = OpticalFlowGetData(optical_flow);
     if (flow_data->updated) {
         OpticalFlowClearUpdated(optical_flow);
-        temp_float = flow_data->position_x_global;
-        temp_float1=flow_data->position_y_global;
+        temp_float_x = flow_data->position_x_global;
+        temp_float_y=flow_data->position_y_global;
     }
 
     // 纯遥控器
