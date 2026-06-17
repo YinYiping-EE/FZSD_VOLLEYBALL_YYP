@@ -202,18 +202,18 @@ static void RemoteControlSet()
         else
             chassis_cmd_send.vy = 0;
     }
-    else if (switch_is_down(rc_data[TEMP].rc.switch_left]))
+    else if (switch_is_down(rc_data[TEMP].rc.switch_left))
     {
         /* 自动模式: vx/vy 来自视觉导航 */
         AutoNavigation();
     }
 
     /* ===== 右开关: 朝向模式, 手动/自动共用 ===== */
-    if (switch_is_down(rc_data[TEMP].rc.switch_right]))
+    if (switch_is_down(rc_data[TEMP].rc.switch_right))
     {
         chassis_cmd_send.chassis_mode = CHASSIS_KEEP_FRONT;
     }
-    else if (switch_is_up(rc_data[TEMP].rc.switch_right]))
+    else if (switch_is_up(rc_data[TEMP].rc.switch_right))
     {
         chassis_cmd_send.chassis_mode = CHASSIS_NO_FOLLOW;
         chassis_cmd_send.wz = (float)rc_data[TEMP].rc.rocker_l_ * 4;
