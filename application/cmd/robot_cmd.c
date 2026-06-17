@@ -99,6 +99,7 @@ void RobotCMDInit()
         .usart_handle = &huart7,
         .protocol = OPTICAL_FLOW_UPIXELS,
         .flow_scale = OPTICAL_FLOW_DEFAULT_SCALE,
+        .enable_global_frame = 1,  /* 使能偏航角世界坐标系映射 */
     };
     optical_flow = OpticalFlowInit(&flow_conf);
 
@@ -245,12 +246,19 @@ void RobotCMDTask()
     // 计算偏移角度,仅在右侧开关状态为[下]需要保持前向时使用
     CalcOffsetAngle();
 
-    // 读取光流模块累计位移数据
+    // 更新光流模块偏航角,用于世界坐标系旋转映射
+#if CHASSIS_YAW_SOURCE == YAW_SOURCE_DM_IMU
+    OpticalFlowSetYaw(optical_flow, DM_IMU_GetData()->yaw);
+#elif CHASSIS_YAW_SOURCE == YAW_SOURCE_BMI088_INS
+    OpticalFlowSetYaw(optical_flow, ins_imu_data->Yaw);
+#endif
+
+    // 读取光流模块累计位移数据,使用世界坐标系下的值
     const OpticalFlow_Data_s *flow_data = OpticalFlowGetData(optical_flow);
     if (flow_data->updated) {
         OpticalFlowClearUpdated(optical_flow);
-        temp_float = flow_data->position_x;
-        temp_float1=flow_data->position_y;
+        temp_float = flow_data->position_x_global;
+        temp_float1=flow_data->position_y_global;
     }
 
     // 纯遥控器
@@ -259,8 +267,14 @@ void RobotCMDTask()
 
     EmergencyHandler(); // 处理模块离线和遥控器急停等紧急情况
 
-    // 设置视觉发送数据,还需增加加速度和角速度数据
-    // VisionSetFlag(chassis_fetch_data.enemy_color,,chassis_fetch_data.bullet_speed)
+    // 上报世界坐标系位置及偏航角到视觉上位机
+#if CHASSIS_YAW_SOURCE == YAW_SOURCE_DM_IMU
+    vision_send_data.robot_yaw = DM_IMU_GetData()->yaw;
+#elif CHASSIS_YAW_SOURCE == YAW_SOURCE_BMI088_INS
+    vision_send_data.robot_yaw = ins_imu_data->Yaw;
+#endif
+    vision_send_data.robot_x = flow_data->position_x_global;
+    vision_send_data.robot_y = flow_data->position_y_global;
 
     // 推送消息,双板通信,视觉通信等
     // 其他应用所需的控制数据在remotecontrolsetmode和mousekeysetmode中完成设置
@@ -272,8 +286,5 @@ void RobotCMDTask()
 #endif // GIMBAL_BOARD
     // PubPushMessage(shoot_cmd_pub, (void *)&shoot_cmd_send);
     // PubPushMessage(gimbal_cmd_pub, (void *)&gimbal_cmd_send);
-    // vision_send_data.robot_x=1145.14;
-    // vision_send_data.robot_yaw=114.514;
-    // vision_send_data.state=1;
     VisionSend(&vision_send_data);//发送
 }

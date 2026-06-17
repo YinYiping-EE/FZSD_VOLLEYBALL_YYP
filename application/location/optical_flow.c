@@ -9,6 +9,8 @@
 #include "bsp_log.h"
 #include "memory.h"
 #include "stdlib.h"
+#include "user_lib.h"
+#include "general_def.h"
 
 /** 保存所有光流实例,用于串口回调中分发接收到的数据. */
 static OpticalFlowInstance *optical_flow_instances[OPTICAL_FLOW_MAX_INSTANCE] = {NULL};
@@ -137,6 +139,32 @@ static void OpticalFlowApplyPayload(OpticalFlowInstance *instance)
     {
         instance->data.velocity_x = dx / dt_s;
         instance->data.velocity_y = dy / dt_s;
+    }
+
+    /*
+     * 全局坐标系映射: 用偏航角将机体系位移旋转到世界系.
+     * 右手系 +x 前 +y 右, 偏航 CCW 为正.
+     * dx_global = dx*cos(θ) - dy*sin(θ)
+     * dy_global = dx*sin(θ) + dy*cos(θ)
+     */
+    if (instance->config.enable_global_frame)
+    {
+        float yaw_rad = instance->yaw_deg * DEGREE_2_RAD;
+        float cy = mcos(yaw_rad);
+        float sy = msin(yaw_rad);
+        float dgx = dx * cy - dy * sy;
+        float dgy = dx * sy + dy * cy;
+
+        instance->data.delta_x_global = dgx;
+        instance->data.delta_y_global = dgy;
+        instance->data.position_x_global += dgx;
+        instance->data.position_y_global += dgy;
+
+        if (dt_s > 0.0f)
+        {
+            instance->data.velocity_x_global = dgx / dt_s;
+            instance->data.velocity_y_global = dgy / dt_s;
+        }
     }
 
     instance->data.updated = 1;
@@ -270,6 +298,9 @@ OpticalFlowInstance *OpticalFlowInit(OpticalFlow_Init_Config_s *config)
     if (instance->config.min_valid_threshold == 0)
         instance->config.min_valid_threshold = 50;
 
+    if (instance->config.enable_global_frame > 1)
+        instance->config.enable_global_frame = 1;
+
     USART_Init_Config_s usart_config = {
         .recv_buff_size = OPTICAL_FLOW_UPIXELS_FRAME_LEN,
         .usart_handle = config->usart_handle,
@@ -328,6 +359,8 @@ void OpticalFlowResetPosition(OpticalFlowInstance *instance)
 
     instance->data.position_x = 0.0f;
     instance->data.position_y = 0.0f;
+    instance->data.position_x_global = 0.0f;
+    instance->data.position_y_global = 0.0f;
 }
 
 /**
@@ -344,6 +377,14 @@ void OpticalFlowSetPosition(OpticalFlowInstance *instance, float x, float y)
 
     instance->data.position_x = x;
     instance->data.position_y = y;
+}
+
+void OpticalFlowSetYaw(OpticalFlowInstance *instance, float yaw_deg)
+{
+    if (instance == NULL)
+        return;
+
+    instance->yaw_deg = yaw_deg;
 }
 
 /**

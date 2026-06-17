@@ -65,6 +65,13 @@ typedef struct
     float velocity_x;    /**< X 方向速度,单位 m/s. */
     float velocity_y;    /**< Y 方向速度,单位 m/s. */
 
+    float delta_x_global;    /**< 世界系 X 方向单帧位移,单位 m. */
+    float delta_y_global;    /**< 世界系 Y 方向单帧位移,单位 m. */
+    float position_x_global; /**< 世界系 X 方向累计位移,单位 m. */
+    float position_y_global; /**< 世界系 Y 方向累计位移,单位 m. */
+    float velocity_x_global; /**< 世界系 X 方向速度,单位 m/s. */
+    float velocity_y_global; /**< 世界系 Y 方向速度,单位 m/s. */
+
     uint32_t frame_count;  /**< 通过帧校验的通信帧计数. */
     uint32_t update_count; /**< 通过质量门限并更新定位数据的帧计数. */
     uint8_t updated;       /**< 新有效定位数据标志,读取后调用 OpticalFlowClearUpdated() 清除. */
@@ -86,6 +93,7 @@ typedef struct
     int8_t x_direction;          /**< 安装方向修正: X 方向符号,填 0 默认 1. */
     int8_t y_direction;          /**< 安装方向修正: Y 方向符号,填 0 默认 1. */
     uint8_t min_valid_threshold; /**< 光流置信度门限,填 0 默认 50. */
+    uint8_t enable_global_frame; /**< 使能偏航角全局坐标系变换,非 0 使能,默认 0 关闭. */
 
     uint16_t daemon_reload_count;                   /**< 离线检测计数,填 0 默认 10. */
     void (*offline_callback)(void *);               /**< 模块离线回调,为空时使用默认串口重启逻辑. */
@@ -103,6 +111,8 @@ struct optical_flow_instance
     DaemonInstance *daemon;           /**< 在线检测实例. */
     OpticalFlow_Init_Config_s config; /**< 初始化参数副本. */
     OpticalFlow_Data_s data;          /**< 最新解析数据. */
+
+    float yaw_deg; /**< 当前偏航角(度),由 OpticalFlowSetYaw() 更新,用于世界系旋转. */
 
     uint8_t payload[OPTICAL_FLOW_UPIXELS_PAYLOAD_LEN]; /**< 正在接收的 payload 缓存. */
     uint8_t payload_idx;                               /**< payload 接收下标. */
@@ -149,6 +159,17 @@ void OpticalFlowResetPosition(OpticalFlowInstance *instance);
  * @param y Y 方向累计位移,单位 m.
  */
 void OpticalFlowSetPosition(OpticalFlowInstance *instance, float x, float y);
+
+/**
+ * @brief 更新当前偏航角,用于世界坐标系旋转变换.
+ *
+ * 由应用层在读取光流数据前调用,传入当前 IMU 偏航角.\n
+ * 当 enable_global_frame 使能时,ApplyPayload 会使用此角度将机体系位移旋转到世界系.
+ *
+ * @param instance 光流模块实例.
+ * @param yaw_deg 当前偏航角,单位度.
+ */
+void OpticalFlowSetYaw(OpticalFlowInstance *instance, float yaw_deg);
 
 /**
  * @brief 判断模块是否在线.
