@@ -74,6 +74,8 @@ typedef struct
 
     uint32_t frame_count;  /**< 通过帧校验的通信帧计数. */
     uint32_t update_count; /**< 通过质量门限并更新定位数据的帧计数. */
+    uint32_t bad_frame_count; /**< 质量/TOF 不达标被插值的坏帧计数. */
+    float    bad_frame_ratio;  /**< 坏帧占比 = bad_frame_count / frame_count. */
     uint8_t updated;       /**< 新有效定位数据标志,读取后调用 OpticalFlowClearUpdated() 清除. */
 } OpticalFlow_Data_s;
 
@@ -113,6 +115,11 @@ struct optical_flow_instance
     OpticalFlow_Data_s data;          /**< 最新解析数据. */
 
     float yaw_deg; /**< 当前偏航角(度),由 OpticalFlowSetYaw() 更新,用于世界系旋转. */
+
+    float last_valid_vx;        /**< 上一帧有效机体系 X 速度(m/s), 坏帧插值用. */
+    float last_valid_vy;        /**< 上一帧有效机体系 Y 速度(m/s), 坏帧插值用. */
+    float last_valid_vx_global; /**< 上一帧有效世界系 X 速度(m/s), 坏帧插值用. */
+    float last_valid_vy_global; /**< 上一帧有效世界系 Y 速度(m/s), 坏帧插值用. */
 
     uint8_t payload[OPTICAL_FLOW_UPIXELS_PAYLOAD_LEN]; /**< 正在接收的 payload 缓存. */
     uint8_t payload_idx;                               /**< payload 接收下标. */

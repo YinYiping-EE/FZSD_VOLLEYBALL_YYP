@@ -79,18 +79,15 @@ static void OpticalFlowApplyPayload(OpticalFlowInstance *instance)
 {
     OpticalFlow_Upixels_Raw_s *raw = &instance->data.raw;
     float scale = instance->config.flow_scale;
-    float angle_x;
-    float angle_y;
-    float dx;
-    float dy;
+    float angle_x, angle_y, dx, dy;
 
     /* 解析 UPIXELS payload 原始字段. */
-    raw->flow_x_integral = OpticalFlowReadI16(&instance->payload[0]);
-    raw->flow_y_integral = OpticalFlowReadI16(&instance->payload[2]);
+    raw->flow_x_integral      = OpticalFlowReadI16(&instance->payload[0]);
+    raw->flow_y_integral      = OpticalFlowReadI16(&instance->payload[2]);
     raw->integration_timespan = OpticalFlowReadU16(&instance->payload[4]);
-    raw->ground_distance = OpticalFlowReadU16(&instance->payload[6]);
-    raw->valid = instance->payload[8];
-    raw->tof_confidence = instance->payload[9];
+    raw->ground_distance      = OpticalFlowReadU16(&instance->payload[6]);
+    raw->valid                = instance->payload[8];
+    raw->tof_confidence       = instance->payload[9];
 
     if (scale == 0.0f)
         scale = OPTICAL_FLOW_DEFAULT_SCALE;
@@ -109,13 +106,34 @@ static void OpticalFlowApplyPayload(OpticalFlowInstance *instance)
     if (instance->daemon)
         DaemonReload(instance->daemon);
 
-    /* 低质量光流时丢弃本帧,保留上一帧有效定位结果. */
-    if (raw->valid < instance->config.min_valid_threshold)
-        return;
+    /* dt_s 提前到质量门限之前, 坏帧插值也需要它. */
+    float dt_s = (float)raw->integration_timespan * 0.000001f;
 
-    /* 角位移(rad) × 固定高度 50mm = 实际平移(m). */
-    dx = angle_x * 0.05f;
-    dy = angle_y * 0.05f;
+    /*
+     * 坏帧插值: 质量/TOF 不达标时, 用上一帧有效速度 × 本帧 dt 填充位移.
+     * delta/velocity 保持上一帧值不变, 不设 updated 标志.
+     */
+    if (raw->valid < instance->config.min_valid_threshold
+        || raw->ground_distance == 0xFFFF)
+    {
+        instance->data.bad_frame_count++;
+        instance->data.bad_frame_ratio = (float)instance->data.bad_frame_count
+                                       / (float)instance->data.frame_count;
+        if (dt_s > 0.0f)
+        {
+            instance->data.position_x        += instance->last_valid_vx        * dt_s;
+            instance->data.position_y        += instance->last_valid_vy        * dt_s;
+            instance->data.position_x_global += instance->last_valid_vx_global * dt_s;
+            instance->data.position_y_global += instance->last_valid_vy_global * dt_s;
+        }
+        return;
+    }
+
+    /* ===== 好帧: 正常计算 ===== */
+
+    /* 角位移(rad) * 高度(mm) / 1000 = 实际平移(m). */
+    dx = angle_x * (float)raw->ground_distance * 0.001f;
+    dy = angle_y * (float)raw->ground_distance * 0.001f;
 
     /* 根据车底实际安装方向修正光流坐标系到车体坐标系. */
     if (instance->config.swap_xy)
@@ -133,12 +151,12 @@ static void OpticalFlowApplyPayload(OpticalFlowInstance *instance)
     instance->data.position_x += dx;
     instance->data.position_y += dy;
 
-    /* integration_timespan 单位为 us,换算成秒后计算速度. */
-    float dt_s = (float)raw->integration_timespan * 0.000001f;
     if (dt_s > 0.0f)
     {
         instance->data.velocity_x = dx / dt_s;
         instance->data.velocity_y = dy / dt_s;
+        instance->last_valid_vx = instance->data.velocity_x;
+        instance->last_valid_vy = instance->data.velocity_y;
     }
 
     /*
@@ -164,11 +182,15 @@ static void OpticalFlowApplyPayload(OpticalFlowInstance *instance)
         {
             instance->data.velocity_x_global = dgx / dt_s;
             instance->data.velocity_y_global = dgy / dt_s;
+            instance->last_valid_vx_global = instance->data.velocity_x_global;
+            instance->last_valid_vy_global = instance->data.velocity_y_global;
         }
     }
 
     instance->data.updated = 1;
     instance->data.update_count++;
+    instance->data.bad_frame_ratio = (float)instance->data.bad_frame_count
+                                   / (float)instance->data.frame_count;
 
     if (instance->config.update_callback)
         instance->config.update_callback(instance);
