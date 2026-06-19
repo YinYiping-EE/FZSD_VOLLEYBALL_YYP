@@ -1,6 +1,8 @@
 #ifndef ROBOT_CMD_H
 #define ROBOT_CMD_H
 
+#include "screen_task.h"
+
 
 /**
  * @brief 机器人核心控制任务初始化,会被RobotInit()调用

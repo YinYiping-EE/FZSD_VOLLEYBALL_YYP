@@ -11,6 +11,7 @@
 #include "dm_imu.h"
 #include "optical_flow.h"
 #include "user_lib.h"
+#include "screen_task.h"
 // bsp
 #include "bsp_dwt.h"
 #include "bsp_log.h"
@@ -20,8 +21,8 @@
 #define YAW_SOURCE_BMI088_INS 1
 #define CHASSIS_YAW_SOURCE    YAW_SOURCE_BMI088_INS
 
-float temp_float=0;
-float temp_float1=0;
+float temp_float_x=0;
+float temp_float_y=0;
 //YYP0417添加：发球杆状态全局变量定义,初始状态设为零位,根据遥控器右侧开关的状态进行切换
 LauncherStatus_TypeDef g_launcher_status = LAUNCHER_ORIGIN;
 
@@ -106,6 +107,9 @@ void RobotCMDInit()
     optical_flow = OpticalFlowInit(&flow_conf);
 
     ins_imu_data = INS_Init(); // 获取 BMI088 EKF 解算结果指针(幂等,可安全多次调用)
+
+    /* 将模块指针传入屏幕导航任务, 供 LCD 地图+状态显示使用 */
+    ScreenNavInit(optical_flow, ins_imu_data, vision_recv_data, rc_data);
 }
 
 /**

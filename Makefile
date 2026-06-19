@@ -145,7 +145,7 @@ application/cmd/robot_cmd.c \
 application/location/dm_imu.c \
 application/location/optical_flow.c \
 application/robot.c \
-application/lcd_test_task.c \
+application/screen_task.c \
 modules/lcd/lcd.c \
 modules/key/key.c \
 Core/Src/i2c.c
