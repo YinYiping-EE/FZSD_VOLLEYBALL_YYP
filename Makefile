@@ -145,6 +145,9 @@ application/cmd/robot_cmd.c \
 application/location/dm_imu.c \
 application/location/optical_flow.c \
 application/robot.c \
+application/lcd_test_task.c \
+modules/lcd/lcd.c \
+modules/key/key.c \
 Core/Src/i2c.c
 
 # ASM sources
@@ -257,6 +260,8 @@ C_INCLUDES =  \
 -Imodules/message_center \
 -Imodules/daemon \
 -Imodules/alarm \
+-Imodules/lcd \
+-Imodules/key \
 -Imodules \
 -IMiddlewares/ST/ARM/DSP/Inc \
 -IMiddlewares/ST/ARM/DSP/Include/dsp \
@@ -268,7 +273,7 @@ C_INCLUDES =  \
 # compile gcc flags
 ASFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
 
-CFLAGS += $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
+CFLAGS += $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -Wno-missing-braces -fdata-sections -ffunction-sections
 
 ifeq ($(DEBUG), 1)
 CFLAGS += -g -gdwarf-2

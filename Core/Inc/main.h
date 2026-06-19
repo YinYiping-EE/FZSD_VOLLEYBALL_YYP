@@ -81,7 +81,10 @@ void Error_Handler(void);
 #define LCD_DC_GPIO_Port GPIOD
 
 /* USER CODE BEGIN Private defines */
-
+#define LCD_BLK_Pin GPIO_PIN_10
+#define LCD_BLK_GPIO_Port GPIOB
+#define LCD_RES_Pin GPIO_PIN_11
+#define LCD_RES_GPIO_Port GPIOB
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
