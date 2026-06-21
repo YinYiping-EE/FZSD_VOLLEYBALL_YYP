@@ -137,8 +137,8 @@ static void OpticalFlowApplyPayload(OpticalFlowInstance *instance)
     /* ===== 好帧: 正常计算 ===== */
 
     /* 角位移(rad) × 固定高度 98mm = 实际平移(m). */
-    dx = angle_x * 0.15f;
-    dy = angle_y * 0.15f;
+    dx = angle_x * 0.18f;
+    dy = angle_y * 0.18f;
 
     /* 根据车底实际安装方向修正光流坐标系到车体坐标系. */
     if (instance->config.swap_xy)

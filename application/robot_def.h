@@ -45,8 +45,8 @@
 
 /* 视觉导航巡点参数 (电机参考速度单位,量纲同手动模式 vx/vy) */
 #define NAV_MAX_SPEED       10000.0f /**< 0.5 * 手动最大速度 (30*660≈19800) */
-#define NAV_SPEED_GAIN      6000.0f  /**< 速度增益, speed = min(max, dist * gain) */
-#define NAV_ARRIVAL_DIST    0.15f    /**< 到达判定距离阈值, m */
+#define NAV_SPEED_GAIN      20000.0f /**< 速度增益, 0.5m 即达上限 (10000/0.5) */
+#define NAV_ARRIVAL_DIST    0.10f   /**< 到达判定距离阈值, m */
 
 /* 视觉上位机回传模式 */
 #define VISION_MODE_COORDINATE  0  /* 坐标模式: target_x/y 为世界坐标(m) */

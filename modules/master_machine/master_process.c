@@ -64,7 +64,7 @@ Vision_Recv_s *VisionInit(UART_HandleTypeDef *_handle)
     Daemon_Init_Config_s daemon_conf = {
         .callback = VisionOfflineCallback,
         .owner_id = vision_usart_instance,
-        .reload_count = 10,
+        .reload_count = 200,  /* 100Hz * 2s = 200 ticks */
     };
     vision_daemon_instance = DaemonRegister(&daemon_conf);
 
@@ -129,7 +129,7 @@ Vision_Recv_s *VisionInit(UART_HandleTypeDef *_handle)
     Daemon_Init_Config_s daemon_conf = {
         .callback = VisionOfflineCallback,
         .owner_id = NULL,
-        .reload_count = 5,
+        .reload_count = 200,  /* 100Hz * 2s = 200 ticks */
     };
     vision_daemon_instance = DaemonRegister(&daemon_conf);
 

@@ -106,11 +106,11 @@ void RobotCMDInit()
     OpticalFlow_Init_Config_s flow_conf = {
         .usart_handle = &huart7,
         .protocol = OPTICAL_FLOW_UPIXELS_NO_TOF,
-        .flow_scale = OPTICAL_FLOW_DEFAULT_SCALE,   /* 传感器 X 轴(swap 后→物理 Y) */
-        .flow_scale_y = 20000.0f,                    /* 传感器 Y 轴(swap 后→物理 X) */
+        .flow_scale = 10000.0f,                         /* X 轴半值修正 (原 5000×2) */
+        .flow_scale_y = 20000.0f,                    /* Y 轴量纲不变 */
         .enable_global_frame = 1,  /* 使能偏航角世界坐标系映射 */
-        .swap_xy = 1,
-        .y_direction = -1,         /* Y 轴反向 */
+        .x_direction = -1,         /* X 轴反向 */
+        .y_direction = 1,          /* Y 轴反向 */
     };
     optical_flow = OpticalFlowInit(&flow_conf);
 
