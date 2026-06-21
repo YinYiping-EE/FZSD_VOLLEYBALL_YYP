@@ -87,13 +87,17 @@ static void OpticalFlowApplyPayload(OpticalFlowInstance *instance)
     raw->integration_timespan = OpticalFlowReadU16(&instance->payload[4]);
     raw->ground_distance      = OpticalFlowReadU16(&instance->payload[6]);
     raw->valid                = instance->payload[8];
-    raw->tof_confidence       = instance->payload[9];
+    raw->version              = instance->payload[9];
 
     if (scale == 0.0f)
         scale = OPTICAL_FLOW_DEFAULT_SCALE;
 
+    float scale_y = instance->config.flow_scale_y;
+    if (scale_y == 0.0f)
+        scale_y = scale;
+
     angle_x = (float)raw->flow_x_integral / scale;
-    angle_y = (float)raw->flow_y_integral / scale;
+    angle_y = (float)raw->flow_y_integral / scale_y;
     instance->data.delta_angle_x = angle_x;
     instance->data.delta_angle_y = angle_y;
 
@@ -114,7 +118,8 @@ static void OpticalFlowApplyPayload(OpticalFlowInstance *instance)
      * delta/velocity 保持上一帧值不变, 不设 updated 标志.
      */
     if (raw->valid < instance->config.min_valid_threshold
-        || raw->ground_distance == 0xFFFF)
+        || (instance->config.protocol == OPTICAL_FLOW_UPIXELS
+            && raw->ground_distance == 0xFFFF))
     {
         instance->data.bad_frame_count++;
         instance->data.bad_frame_ratio = (float)instance->data.bad_frame_count
@@ -131,9 +136,9 @@ static void OpticalFlowApplyPayload(OpticalFlowInstance *instance)
 
     /* ===== 好帧: 正常计算 ===== */
 
-    /* 角位移(rad) * 高度(mm) / 1000 = 实际平移(m). */
-    dx = angle_x * (float)raw->ground_distance * 0.001f;
-    dy = angle_y * (float)raw->ground_distance * 0.001f;
+    /* 角位移(rad) × 固定高度 98mm = 实际平移(m). */
+    dx = angle_x * 0.15f;
+    dy = angle_y * 0.15f;
 
     /* 根据车底实际安装方向修正光流坐标系到车体坐标系. */
     if (instance->config.swap_xy)
@@ -284,7 +289,8 @@ OpticalFlowInstance *OpticalFlowInit(OpticalFlow_Init_Config_s *config)
         while (1)
             LOGERROR("[optical_flow] invalid init config");
 
-    if (config->protocol != OPTICAL_FLOW_UPIXELS)
+    if (config->protocol != OPTICAL_FLOW_UPIXELS
+        && config->protocol != OPTICAL_FLOW_UPIXELS_NO_TOF)
         while (1)
             LOGERROR("[optical_flow] unsupported protocol");
 

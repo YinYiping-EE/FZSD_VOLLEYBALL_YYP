@@ -12,6 +12,7 @@
 #include "optical_flow.h"
 #include "user_lib.h"
 #include "screen_task.h"
+#include "controller.h"
 // bsp
 #include "bsp_dwt.h"
 #include "bsp_log.h"
@@ -60,6 +61,11 @@ static Vision_Send_s vision_send_data;  // 视觉发送数据
 // static Shoot_Upload_Data_s shoot_fetch_data; // 从发射获取的反馈信息
 
 static Robot_Status_e robot_state; // 机器人整体工作状态
+
+#if VISION_MODE == VISION_MODE_OFFSET
+static PIDInstance pid_vision_x;  /* 视觉 X 轴跟踪 PID */
+static PIDInstance pid_vision_y;  /* 视觉 Y 轴跟踪 PID */
+#endif
 void RobotCMDInit()
 {
     rc_data = RemoteControlInit(&huart5);   // 修改为对应串口,注意如果是自研板dbus协议串口需选用添加了反相器的那个
@@ -99,14 +105,36 @@ void RobotCMDInit()
 
     OpticalFlow_Init_Config_s flow_conf = {
         .usart_handle = &huart7,
-        .protocol = OPTICAL_FLOW_UPIXELS,
-        .flow_scale = OPTICAL_FLOW_DEFAULT_SCALE,
+        .protocol = OPTICAL_FLOW_UPIXELS_NO_TOF,
+        .flow_scale = OPTICAL_FLOW_DEFAULT_SCALE,   /* 传感器 X 轴(swap 后→物理 Y) */
+        .flow_scale_y = 20000.0f,                    /* 传感器 Y 轴(swap 后→物理 X) */
         .enable_global_frame = 1,  /* 使能偏航角世界坐标系映射 */
+        .swap_xy = 1,
         .y_direction = -1,         /* Y 轴反向 */
     };
     optical_flow = OpticalFlowInit(&flow_conf);
 
     ins_imu_data = INS_Init(); // 获取 BMI088 EKF 解算结果指针(幂等,可安全多次调用)
+
+    /* 视觉跟踪 PID 初始化 (仅误差模式) */
+#if VISION_MODE == VISION_MODE_OFFSET
+    {
+        PID_Init_Config_s cfg_x = {
+            .Kp = VISION_PID_X_KP, .Ki = VISION_PID_X_KI, .Kd = VISION_PID_X_KD,
+            .MaxOut = VISION_PID_X_MAXOUT, .DeadBand = 2.0f,
+            .Improve = PID_Integral_Limit,
+            .IntegralLimit = VISION_PID_X_MAXOUT * 0.3f,
+        };
+        PID_Init_Config_s cfg_y = {
+            .Kp = VISION_PID_Y_KP, .Ki = VISION_PID_Y_KI, .Kd = VISION_PID_Y_KD,
+            .MaxOut = VISION_PID_Y_MAXOUT, .DeadBand = 2.0f,
+            .Improve = PID_Integral_Limit,
+            .IntegralLimit = VISION_PID_Y_MAXOUT * 0.3f,
+        };
+        PIDInit(&pid_vision_x, &cfg_x);
+        PIDInit(&pid_vision_y, &cfg_y);
+    }
+#endif
 
     /* 将模块指针传入屏幕导航任务, 供 LCD 地图+状态显示使用 */
     ScreenNavInit(optical_flow, ins_imu_data, vision_recv_data, rc_data);
@@ -168,6 +196,8 @@ static void AutoNavigation(void)
         return;
     }
 
+#if VISION_MODE == VISION_MODE_COORDINATE
+    /* ---- 坐标模式: 目标位置 - 当前位置 = 距离误差 → 速度规划 ---- */
     const OpticalFlow_Data_s *flow_data = OpticalFlowGetData(optical_flow);
     float err_x = vision_recv_data->target_x - flow_data->position_x_global;
     float err_y = vision_recv_data->target_y - flow_data->position_y_global;
@@ -185,6 +215,15 @@ static void AutoNavigation(void)
         chassis_cmd_send.vx = (err_x / dist) * speed;
         chassis_cmd_send.vy = (err_y / dist) * speed;
     }
+
+#elif VISION_MODE == VISION_MODE_OFFSET
+    /* ---- 误差模式: 像素误差 → PID → vx/vy (MaxOut 限幅) ---- */
+    /* PIDCalculate(measure=-err, ref=0) → Err = 0-(-err) = 像素误差 */
+    chassis_cmd_send.vx = PIDCalculate(&pid_vision_x,
+                                       -vision_recv_data->target_x, 0.0f);
+    chassis_cmd_send.vy = PIDCalculate(&pid_vision_y,
+                                       -vision_recv_data->target_y, 0.0f);
+#endif
 }
 
 /**
