@@ -44,7 +44,7 @@
 #define REDUCTION_RATIO_WHEEL 19.0f // 电机减速比,因为编码器量测的是转子的速度而不是输出轴的速度故需进行转换
 
 /* 视觉导航巡点参数 (电机参考速度单位,量纲同手动模式 vx/vy) */
-#define NAV_MAX_SPEED       10000.0f /**< 0.5 * 手动最大速度 (30*660≈19800) */
+#define NAV_MAX_SPEED       14000.0f /**< 视觉导航合速度上限 */
 #define NAV_SPEED_GAIN      20000.0f /**< 速度增益, 0.5m 即达上限 (10000/0.5) */
 #define NAV_ARRIVAL_DIST    0.10f   /**< 到达判定距离阈值, m */
 

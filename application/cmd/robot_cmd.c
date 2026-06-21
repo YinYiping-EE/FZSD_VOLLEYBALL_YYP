@@ -203,7 +203,8 @@ static void AutoNavigation(void)
     float err_y = vision_recv_data->target_y - flow_data->position_y_global;
     float dist = Sqrt(err_x * err_x + err_y * err_y);
 
-    if (dist < NAV_ARRIVAL_DIST)
+    /* 安全边界: 目标超过 3m 不移动, 防止异常坐标导致飞车 */
+    if (dist > 3.0f || dist < NAV_ARRIVAL_DIST)
     {
         chassis_cmd_send.vx = 0.0f;
         chassis_cmd_send.vy = 0.0f;
