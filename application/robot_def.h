@@ -44,24 +44,25 @@
 #define REDUCTION_RATIO_WHEEL 19.0f // 电机减速比,因为编码器量测的是转子的速度而不是输出轴的速度故需进行转换
 
 /* 视觉导航巡点参数 (电机参考速度单位,量纲同手动模式 vx/vy) */
-#define NAV_MAX_SPEED       14000.0f /**< 视觉导航合速度上限 */
-#define NAV_SPEED_GAIN      20000.0f /**< 速度增益, 0.5m 即达上限 (10000/0.5) */
+#define NAV_MAX_SPEED       16000.0f /**< 视觉导航合速度上限 */
+#define NAV_SPEED_GAIN      40000.0f /**< 速度增益, 0.5m 即达上限 (10000/0.5) */
 #define NAV_ARRIVAL_DIST    0.10f   /**< 到达判定距离阈值, m */
 
 /* 视觉上位机回传模式 */
 #define VISION_MODE_COORDINATE  0  /* 坐标模式: target_x/y 为世界坐标(m) */
 #define VISION_MODE_OFFSET      1  /* 误差模式: target_x/y 为像素跟踪误差 */
-#define VISION_MODE            VISION_MODE_COORDINATE  /* <-- 编译时切换 */
+/* VISION_MODE 已删除, 运行时通过 vision_recv_data->cmd 切换 */
 
-/* 视觉跟踪 PID 参数 (仅 VISION_MODE_OFFSET 使用, X/Y 轴独立) */
-#define VISION_PID_X_KP     0.5f     /**< X轴 P 增益 */
-#define VISION_PID_X_KI     0.01f    /**< X轴 I 增益 */
-#define VISION_PID_X_KD     0.0f     /**< X轴 D 增益 */
-#define VISION_PID_X_MAXOUT 10000.0f /**< X轴 输出限幅 */
-#define VISION_PID_Y_KP     0.5f     /**< Y轴 P 增益 */
-#define VISION_PID_Y_KI     0.01f    /**< Y轴 I 增益 */
-#define VISION_PID_Y_KD     0.0f     /**< Y轴 D 增益 */
-#define VISION_PID_Y_MAXOUT 10000.0f /**< Y轴 输出限幅 */
+/* 视觉跟踪 PID 参数 (cmd=OFFSET 时使用, X/Y 轴独立)
+ * @warning 以下为初始占位值, 未经实测调参, 后续需根据实际响应特性调整 */
+#define VISION_PID_X_KP     0.5f     /**< X轴 P 增益 (未调参) */
+#define VISION_PID_X_KI     0.01f    /**< X轴 I 增益 (未调参) */
+#define VISION_PID_X_KD     0.0f     /**< X轴 D 增益 (未调参) */
+#define VISION_PID_X_MAXOUT 10000.0f /**< X轴 输出限幅 (< NAV_MAX_SPEED) */
+#define VISION_PID_Y_KP     0.5f     /**< Y轴 P 增益 (未调参) */
+#define VISION_PID_Y_KI     0.01f    /**< Y轴 I 增益 (未调参) */
+#define VISION_PID_Y_KD     0.0f     /**< Y轴 D 增益 (未调参) */
+#define VISION_PID_Y_MAXOUT 10000.0f /**< Y轴 输出限幅 (< NAV_MAX_SPEED) */
 
 #define GYRO2GIMBAL_DIR_YAW 1   // 陀螺仪数据相较于云台的yaw的方向,1为相同,-1为相反
 #define GYRO2GIMBAL_DIR_PITCH 1 // 陀螺仪数据相较于云台的pitch的方向,1为相同,-1为相反

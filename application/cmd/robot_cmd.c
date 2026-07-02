@@ -62,10 +62,9 @@ static Vision_Send_s vision_send_data;  // 视觉发送数据
 
 static Robot_Status_e robot_state; // 机器人整体工作状态
 
-#if VISION_MODE == VISION_MODE_OFFSET
 static PIDInstance pid_vision_x;  /* 视觉 X 轴跟踪 PID */
 static PIDInstance pid_vision_y;  /* 视觉 Y 轴跟踪 PID */
-#endif
+static uint8_t    last_vision_cmd; /* 上一次 cmd, 用于检测模式切换 */
 void RobotCMDInit()
 {
     rc_data = RemoteControlInit(&huart5);   // 修改为对应串口,注意如果是自研板dbus协议串口需选用添加了反相器的那个
@@ -116,8 +115,7 @@ void RobotCMDInit()
 
     ins_imu_data = INS_Init(); // 获取 BMI088 EKF 解算结果指针(幂等,可安全多次调用)
 
-    /* 视觉跟踪 PID 初始化 (仅误差模式) */
-#if VISION_MODE == VISION_MODE_OFFSET
+    /* 视觉跟踪 PID 初始化 (cmd=CFF 时使用) */
     {
         PID_Init_Config_s cfg_x = {
             .Kp = VISION_PID_X_KP, .Ki = VISION_PID_X_KI, .Kd = VISION_PID_X_KD,
@@ -134,7 +132,6 @@ void RobotCMDInit()
         PIDInit(&pid_vision_x, &cfg_x);
         PIDInit(&pid_vision_y, &cfg_y);
     }
-#endif
 
     /* 将模块指针传入屏幕导航任务, 供 LCD 地图+状态显示使用 */
     ScreenNavInit(optical_flow, ins_imu_data, vision_recv_data, rc_data);
@@ -196,35 +193,63 @@ static void AutoNavigation(void)
         return;
     }
 
-#if VISION_MODE == VISION_MODE_COORDINATE
-    /* ---- 坐标模式: 目标位置 - 当前位置 = 距离误差 → 速度规划 ---- */
-    const OpticalFlow_Data_s *flow_data = OpticalFlowGetData(optical_flow);
-    float err_x = vision_recv_data->target_x - flow_data->position_x_global;
-    float err_y = vision_recv_data->target_y - flow_data->position_y_global;
-    float dist = Sqrt(err_x * err_x + err_y * err_y);
+    uint8_t cmd = vision_recv_data->cmd;
 
-    /* 安全边界: 目标超过 3m 不移动, 防止异常坐标导致飞车 */
-    if (dist > 3.0f || dist < NAV_ARRIVAL_DIST)
+    /* 模式切换: 清零 PID 积分 + 速度, 防止上一模式数据残留 */
+    if (cmd != last_vision_cmd)
     {
+        if (cmd == VISION_MODE_OFFSET)
+        {
+            static const PID_Init_Config_s cfg_x = {
+                .Kp = VISION_PID_X_KP, .Ki = VISION_PID_X_KI, .Kd = VISION_PID_X_KD,
+                .MaxOut = VISION_PID_X_MAXOUT, .DeadBand = 2.0f,
+                .Improve = PID_Integral_Limit,
+                .IntegralLimit = VISION_PID_X_MAXOUT * 0.3f,
+            };
+            static const PID_Init_Config_s cfg_y = {
+                .Kp = VISION_PID_Y_KP, .Ki = VISION_PID_Y_KI, .Kd = VISION_PID_Y_KD,
+                .MaxOut = VISION_PID_Y_MAXOUT, .DeadBand = 2.0f,
+                .Improve = PID_Integral_Limit,
+                .IntegralLimit = VISION_PID_Y_MAXOUT * 0.3f,
+            };
+            PIDInit(&pid_vision_x, (PID_Init_Config_s *)&cfg_x);
+            PIDInit(&pid_vision_y, (PID_Init_Config_s *)&cfg_y);
+        }
         chassis_cmd_send.vx = 0.0f;
         chassis_cmd_send.vy = 0.0f;
-    }
-    else
-    {
-        float speed = dist * NAV_SPEED_GAIN;
-        speed = float_constrain(speed, 0.0f, NAV_MAX_SPEED);
-        chassis_cmd_send.vx = (err_x / dist) * speed;
-        chassis_cmd_send.vy = (err_y / dist) * speed;
+        last_vision_cmd = cmd;
+        return;
     }
 
-#elif VISION_MODE == VISION_MODE_OFFSET
-    /* ---- 误差模式: 像素误差 → PID → vx/vy (MaxOut 限幅) ---- */
-    /* PIDCalculate(measure=-err, ref=0) → Err = 0-(-err) = 像素误差 */
-    chassis_cmd_send.vx = PIDCalculate(&pid_vision_x,
-                                       -vision_recv_data->target_x, 0.0f);
-    chassis_cmd_send.vy = PIDCalculate(&pid_vision_y,
-                                       -vision_recv_data->target_y, 0.0f);
-#endif
+    if (cmd == VISION_MODE_COORDINATE)
+    {
+        /* ---- 坐标模式: 目标位置 - 当前位置 = 距离误差 → 速度规划 ---- */
+        const OpticalFlow_Data_s *flow_data = OpticalFlowGetData(optical_flow);
+        float err_x = vision_recv_data->target_x - flow_data->position_x_global;
+        float err_y = vision_recv_data->target_y - flow_data->position_y_global;
+        float dist = Sqrt(err_x * err_x + err_y * err_y);
+
+        /* 安全边界: 目标超过 3m 不移动, 防止异常坐标导致飞车 */
+        if (dist > 3.0f || dist < NAV_ARRIVAL_DIST)
+        {
+            chassis_cmd_send.vx = 0.0f;
+            chassis_cmd_send.vy = 0.0f;
+        }
+        else
+        {
+            float speed = dist * NAV_SPEED_GAIN;
+            speed = float_constrain(speed, 0.0f, NAV_MAX_SPEED);
+            chassis_cmd_send.vx = (err_x / dist) * speed;
+            chassis_cmd_send.vy = (err_y / dist) * speed;
+        }
+    }
+    else /* cmd == CMD_OFFSET → 误差模式: 像素误差 → PID → vx/vy (MaxOut 限幅) */
+    {
+        chassis_cmd_send.vx = PIDCalculate(&pid_vision_x,
+                                           -vision_recv_data->target_x, 0.0f);
+        chassis_cmd_send.vy = PIDCalculate(&pid_vision_y,
+                                           -vision_recv_data->target_y, 0.0f);
+    }
 }
 
 /**
@@ -357,6 +382,16 @@ void RobotCMDTask()
 #endif
     vision_send_data.robot_x = flow_data->position_x_global;
     vision_send_data.robot_y = flow_data->position_y_global;
+
+    /* mode 上报: 0=遥控器断联, 1=手动模式, 2=自动模式 */
+    if (!RemoteControlIsOnline())
+        vision_send_data.mode = MODE_IDLE;       /* 0: 遥控器断联 */
+    else if (switch_is_up(rc_data[TEMP].rc.switch_left))
+        vision_send_data.mode = MODE_REMOTE;     /* 1: 手动模式 */
+    else if (switch_is_down(rc_data[TEMP].rc.switch_left))
+        vision_send_data.mode = MODE_SELF;       /* 2: 自动模式 */
+    else
+        vision_send_data.mode = MODE_IDLE;       /* 中位, 视为断联 */
 
     // 推送消息,双板通信,视觉通信等
     // 其他应用所需的控制数据在remotecontrolsetmode和mousekeysetmode中完成设置

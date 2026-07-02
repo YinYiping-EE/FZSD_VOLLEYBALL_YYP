@@ -190,11 +190,9 @@ static void draw_status_labels(void)
 
     /* Row 3: BAD + mode */
     LCD_ShowString(2, ROW3_Y, (const uint8_t *)"BAD:", WHITE, BLACK, 16, 0);
-#if VISION_MODE == VISION_MODE_COORDINATE
-    LCD_ShowString(210, ROW3_Y, (const uint8_t *)"POS", GREEN, BLACK, 16, 0);
-#else
-    LCD_ShowString(210, ROW3_Y, (const uint8_t *)"OFF", YELLOW, BLACK, 16, 0);
-#endif
+    LCD_ShowString(210, ROW3_Y,
+        screen_vision->cmd == VISION_MODE_COORDINATE ? (const uint8_t *)"POS" : (const uint8_t *)"OFF",
+        screen_vision->cmd == VISION_MODE_COORDINATE ? GREEN : YELLOW, BLACK, 16, 0);
 }
 
 /* ==================================================================

@@ -44,7 +44,8 @@ static void DecodeVision(void)
     for (uint8_t i = 1; i < VISION_RECV_SIZE - 2; ++i) xor_calc ^= buf[i];
     if (xor_calc != buf[VISION_RECV_SIZE - 2]) return;
 
-    // 提取规划数据（buf[1]=cmd, buf[2..3]=len，此处固定为20）
+    // 提取规划数据（buf[1]=cmd, buf[2..3]=len）
+    recv_data.cmd = buf[1];
     memcpy(&recv_data.target_x,    &buf[4],  4);
     memcpy(&recv_data.target_y,    &buf[8],  4);
     memcpy(&recv_data.target_yaw,  &buf[12], 4);
@@ -112,6 +113,7 @@ static void DecodeVision(uint16_t recv_len)
     for (uint8_t i = 1; i < VISION_RECV_SIZE - 2; ++i) xor_calc ^= vis_recv_buff[i];
     if (xor_calc != vis_recv_buff[VISION_RECV_SIZE - 2]) return;
 
+    recv_data.cmd = vis_recv_buff[1];
     memcpy(&recv_data.target_x,    &vis_recv_buff[4],  4);
     memcpy(&recv_data.target_y,    &vis_recv_buff[8],  4);
     memcpy(&recv_data.target_yaw,  &vis_recv_buff[12], 4);

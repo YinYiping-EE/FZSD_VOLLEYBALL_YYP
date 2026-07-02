@@ -22,7 +22,8 @@ typedef enum {
 } Robot_State_e;
 
 typedef enum {
-    CMD_MOVE_PLAN = 0
+    CMD_MOVE_PLAN = 0,
+    CMD_OFFSET    = 1   /**< 像素误差 PID 跟踪模式 */
 } Plan_Cmd_e;
 
 /* ---------------- 数据结构体（名称不变，字段重新定义） ---------------- */
@@ -33,6 +34,7 @@ typedef enum {
  *        上位机下发的接球规划目标
  */
 typedef struct {
+    uint8_t cmd;              // CMD_MOVE_PLAN=0 坐标导航, CMD_OFFSET=1 误差跟踪
     float target_x;           // 接球目标位置 X (m)
     float target_y;           // 接球目标位置 Y (m)
     float target_yaw;         // 目标机器人朝向 (度)
